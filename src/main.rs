@@ -5,13 +5,14 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 #[derive(Debug)]
+#[allow(unused)]
 enum SysFsParseError {
     MissingField(Option<String>),
     ConversionError(Option<String>),
 }
 
 #[derive(Debug)]
-enum BatteryStatus {
+enum SysFsStatus {
     Charging,
     Discharing,
     NotCharging,
@@ -19,32 +20,34 @@ enum BatteryStatus {
     Unknown,
 }
 
-impl Default for BatteryStatus {
+impl Default for SysFsStatus {
     fn default() -> Self {
-        BatteryStatus::Unknown
+        SysFsStatus::Unknown
     }
 }
 
-impl fmt::Display for BatteryStatus {
+impl fmt::Display for SysFsStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let val = match &self {
-            BatteryStatus::Charging => "charging",
-            BatteryStatus::Discharing => "discharging",
-            BatteryStatus::NotCharging => "not charging",
-            BatteryStatus::Full => "full",
+            SysFsStatus::Charging => "charging",
+            SysFsStatus::Discharing => "discharging",
+            SysFsStatus::NotCharging => "not charging",
+            SysFsStatus::Full => "full",
             _ => "unknown",
         };
         write!(f, "{}", val)
     }
 }
 
-impl FromStr for BatteryStatus {
+impl FromStr for SysFsStatus {
     type Err = SysFsParseError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         return Ok(match () {
-            _ if s.eq_ignore_ascii_case("charging") => BatteryStatus::Charging,
-
-            _ => BatteryStatus::Unknown,
+            _ if s.eq_ignore_ascii_case("charging") => SysFsStatus::Charging,
+            _ if s.eq_ignore_ascii_case("discharging") => SysFsStatus::Discharing,
+            _ if s.eq_ignore_ascii_case("notcharging") => SysFsStatus::NotCharging,
+            _ if s.eq_ignore_ascii_case("full") => SysFsStatus::Full,
+            _ => SysFsStatus::Unknown,
         });
     }
 }
@@ -52,17 +55,12 @@ impl FromStr for BatteryStatus {
 // Data from a snapshot of the uevent file. All units uA
 #[derive(Debug, Default)]
 struct SysFsInstant {
-    status: BatteryStatus,
+    status: SysFsStatus,
     current_now: i32,
     charge_now: i32,
     charge_full: i32,
     name: String,
 }
-
-// #[derive(Debug)]
-// struct SysFsBattery {
-//     instant: SysFsInstant,
-// }
 
 impl SysFsInstant {
     fn new() -> Self {
@@ -76,14 +74,18 @@ impl FromStr for SysFsInstant {
         let mut instant = SysFsInstant::new();
 
         let sys_fs_iterator: Vec<_> = s.lines().collect();
-        dbg!(&sys_fs_iterator);
 
         for line in sys_fs_iterator {
             if let Some((name, value)) = line.split_once("=") {
-                dbg!(name, value);
                 match () {
                     _ if name.eq_ignore_ascii_case("power_supply_name") => {
                         instant.name = value.into()
+                    }
+                    _ if name.eq_ignore_ascii_case("power_supply_status") => {
+                        instant.status = match SysFsStatus::from_str(value) {
+                            Ok(s) => s,
+                            Err(e) => return Err(e),
+                        }
                     }
                     _ if name.eq_ignore_ascii_case("power_supply_current_now") => {
                         instant.current_now = match value.parse() {
@@ -115,7 +117,7 @@ impl FromStr for SysFsInstant {
                             }
                         }
                     }
-                    _ => println!("not required"),
+                    _ => continue,
                 }
             }
         }
@@ -141,7 +143,7 @@ fn main() -> io::Result<()> {
     for entry in entries {
         let uevent = fs::read_to_string(Path::join(&entry, "uevent"))?;
         let instant = SysFsInstant::from_str(&uevent.to_string());
-        dbg!(instant);
+        let _ = dbg!(instant);
     }
 
     Ok(())
