@@ -11,10 +11,10 @@ enum SysFsParseError {
     ConversionError(Option<String>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 enum SysFsStatus {
     Charging,
-    Discharing,
+    Discharging,
     NotCharging,
     Full,
     Unknown,
@@ -30,7 +30,7 @@ impl fmt::Display for SysFsStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let val = match &self {
             SysFsStatus::Charging => "charging",
-            SysFsStatus::Discharing => "discharging",
+            SysFsStatus::Discharging => "discharging",
             SysFsStatus::NotCharging => "not charging",
             SysFsStatus::Full => "full",
             _ => "unknown",
@@ -44,7 +44,7 @@ impl FromStr for SysFsStatus {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         return Ok(match () {
             _ if s.eq_ignore_ascii_case("charging") => SysFsStatus::Charging,
-            _ if s.eq_ignore_ascii_case("discharging") => SysFsStatus::Discharing,
+            _ if s.eq_ignore_ascii_case("discharging") => SysFsStatus::Discharging,
             _ if s.eq_ignore_ascii_case("notcharging") => SysFsStatus::NotCharging,
             _ if s.eq_ignore_ascii_case("full") => SysFsStatus::Full,
             _ => SysFsStatus::Unknown,
@@ -53,7 +53,7 @@ impl FromStr for SysFsStatus {
 }
 
 // Data from a snapshot of the uevent file. All units uA
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 struct SysFsInstant {
     status: SysFsStatus,
     current_now: i32,
@@ -65,6 +65,18 @@ struct SysFsInstant {
 impl SysFsInstant {
     fn new() -> Self {
         SysFsInstant::default()
+    }
+
+    fn time_estimate(self: &Self) -> Option<f32> {
+        if self.status == SysFsStatus::Discharging {
+            return Some((self.charge_now as f32) / (self.current_now as f32));
+        } else if self.status == SysFsStatus::Charging {
+            return Some(
+                -((self.charge_full - self.charge_now) as f32) / (self.current_now as f32),
+            );
+        } else {
+            return None;
+        }
     }
 }
 
@@ -142,8 +154,9 @@ fn main() -> io::Result<()> {
 
     for entry in entries {
         let uevent = fs::read_to_string(Path::join(&entry, "uevent"))?;
-        let instant = SysFsInstant::from_str(&uevent.to_string());
-        let _ = dbg!(instant);
+        let instant = SysFsInstant::from_str(&uevent.to_string()).unwrap();
+        dbg!(&instant);
+        dbg!(&instant.time_estimate());
     }
 
     Ok(())
