@@ -1,6 +1,8 @@
 [package]
-name = "battery-monitor"
+name = "praeco"
 version = "0.1.0"
 edition = "2024"
+description = "A simple battery monitoring daemon for Linux"
+license = "CC BY-NC-SA 4.0"
 
 [dependencies]
