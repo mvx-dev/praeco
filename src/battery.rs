@@ -2,6 +2,7 @@ use std::{
     fs,
     path::{Path, PathBuf},
     str::FromStr,
+    time::SystemTime,
 };
 
 use crate::{SysFsError, SysFsInstant};
@@ -33,6 +34,13 @@ impl Battery {
 
     pub fn capacity(&self) -> f32 {
         self.instant.capacity()
+    }
+
+    pub fn get_modification_time(&self) -> Result<SystemTime, SysFsError> {
+        let metadata = fs::metadata(&self.uevent_path)?;
+
+        let time = metadata.modified()?;
+        Ok(time)
     }
 }
 

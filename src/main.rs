@@ -41,32 +41,34 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let hints: HashMap<&str, Value> = HashMap::new();
     let actions: Vec<&str> = Vec::new();
 
-    let threshold = 0.68 as f32;
-    loop {
-        battery.update()?;
-        println!("Percentage: {}", battery.capacity());
-        dbg!(&battery.instant);
-        if battery.capacity() <= threshold {
-            let reply = connection.call_method(
-                Some("org.freedesktop.Notifications"),
-                "/org/freedesktop/Notifications",
-                Some("org.freedesktop.Notifications"),
-                "Notify",
-                &(
-                    "praeco",
-                    0u32,
-                    "",
-                    "Battery Low",
-                    "your battery is low :(",
-                    actions,
-                    hints,
-                    5000i32,
-                ),
-            )?;
-            let notification_id: u32 = reply.body().deserialize()?;
-            println!("Notification sent (id {})", notification_id);
-            return Ok(());
-        }
-        sleep(std::time::Duration::from_secs(1));
-    }
+    let threshold = 0.61 as f32;
+    let _ = dbg!(battery.get_modification_time());
+    Ok(())
+    // loop {
+    //     battery.update()?;
+    //     println!("Percentage: {}", battery.capacity());
+    //     dbg!(&battery.instant);
+    //     if battery.capacity() <= threshold {
+    //         let reply = connection.call_method(
+    //             Some("org.freedesktop.Notifications"),
+    //             "/org/freedesktop/Notifications",
+    //             Some("org.freedesktop.Notifications"),
+    //             "Notify",
+    //             &(
+    //                 "praeco",
+    //                 0u32,
+    //                 "",
+    //                 "Battery Low",
+    //                 "your battery is low :(",
+    //                 actions,
+    //                 hints,
+    //                 5000i32,
+    //             ),
+    //         )?;
+    //         let notification_id: u32 = reply.body().deserialize()?;
+    //         println!("Notification sent (id {})", notification_id);
+    //         return Ok(());
+    //     }
+    //     sleep(std::time::Duration::from_secs(1));
+    // }
 }
