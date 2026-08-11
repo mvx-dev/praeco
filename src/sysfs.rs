@@ -1,32 +1,40 @@
-use std::{error::Error, fmt, str::FromStr};
+use std::{error::Error, fmt, io, str::FromStr};
 
 #[derive(Debug)]
 #[allow(unused)]
-pub enum SysFsParseError {
+pub enum SysFsError {
     MissingField(Option<String>),
     ConversionError(Option<String>),
+    Io(io::Error),
 }
 
-impl Error for SysFsParseError {}
+impl Error for SysFsError {}
 
-impl fmt::Display for SysFsParseError {
+impl fmt::Display for SysFsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SysFsParseError::ConversionError(s) => {
+            SysFsError::ConversionError(s) => {
                 return write!(
                     f,
                     "conversion error: unable to convert {}",
                     s.clone().unwrap_or("unknown".to_string())
                 );
             }
-            SysFsParseError::MissingField(s) => {
+            SysFsError::MissingField(s) => {
                 return write!(
                     f,
                     "missing field error: unable to populate field {}",
                     s.clone().unwrap_or("unknown".to_string())
                 );
             }
+            SysFsError::Io(s) => return s.fmt(f),
         }
+    }
+}
+
+impl From<io::Error> for SysFsError {
+    fn from(value: io::Error) -> Self {
+        SysFsError::Io(value)
     }
 }
 
@@ -59,7 +67,7 @@ impl fmt::Display for SysFsStatus {
 }
 
 impl FromStr for SysFsStatus {
-    type Err = SysFsParseError;
+    type Err = SysFsError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(match () {
             _ if s.eq_ignore_ascii_case("charging") => SysFsStatus::Charging,
@@ -94,6 +102,10 @@ impl SysFsInstant {
         }
     }
 
+    pub fn capacity(&self) -> f32 {
+        self.charge_now as f32 / self.charge_full as f32
+    }
+
     fn discharge_estimate(&self) -> f32 {
         self.charge_now as f32 / self.current_now as f32
     }
@@ -104,13 +116,13 @@ impl SysFsInstant {
 }
 
 impl FromStr for SysFsInstant {
-    type Err = SysFsParseError;
+    type Err = SysFsError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut instant = SysFsInstant::new();
 
         let parse_num = |v: &str| {
             v.parse()
-                .map_err(|_| SysFsParseError::ConversionError(Some(v.to_string())))
+                .map_err(|_| SysFsError::ConversionError(Some(v.to_string())))
         };
 
         for line in s.lines() {

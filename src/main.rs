@@ -1,6 +1,7 @@
 // This work is licensed under Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International.
 // To view a copy of this license, visit https://creativecommons.org/licenses/by-nc-sa/4.0/
 
+use std::error;
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -9,7 +10,6 @@ use std::str::FromStr;
 mod sysfs;
 use sysfs::*;
 
-fn main() -> io::Result<()> {
     let ps_root = PathBuf::from("/sys/class/power_supply");
 
     let entries: Vec<_> = fs::read_dir(ps_root)?
@@ -29,6 +29,7 @@ fn main() -> io::Result<()> {
         dbg!(&instant);
         dbg!(&instant.time_estimate());
     }
+fn main() -> Result<(), Box<dyn error::Error>> {
 
     Ok(())
 }
