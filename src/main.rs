@@ -3,20 +3,23 @@
 
 use std::collections::HashMap;
 use std::error;
-use std::fs;
-use std::io;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
 use std::thread::sleep;
 
 mod battery;
+mod config;
 mod sysfs;
 pub use battery::*;
+pub use config::*;
 pub use sysfs::*;
 use zbus::blocking::Connection;
 use zbus::zvariant::Value;
 
+pub const UEVENT_ROOT: &str = "/sys/class/power_supply";
+
 fn main() -> Result<(), Box<dyn error::Error>> {
+    let config_file = Path::new("/home/cheshire/.config/praeco/config.toml");
+    let config = load(config_file)?;
     let ps_root = PathBuf::from("/sys/class/power_supply/BAT1/uevent");
 
     // let entries: Vec<_> = fs::read_dir(ps_root)?
@@ -29,7 +32,10 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     //             .is_some_and(|n| n.contains("BAT"))
     //     })
     //     .collect();
-    let mut battery = Battery::try_from(&ps_root)?;
+    let mut battery = match config.batteries.get("laptop") {
+        Some(b) => Battery::try_from(b)?,
+        None => panic!("not loaded correctly"),
+    };
 
     // let uevent = fs::read_to_string(Path::join(&entries[0], "uevent"))?;
     // let instant = SysFsInstant::from_str(&uevent.to_string()).unwrap();
@@ -41,34 +47,33 @@ fn main() -> Result<(), Box<dyn error::Error>> {
     let hints: HashMap<&str, Value> = HashMap::new();
     let actions: Vec<&str> = Vec::new();
 
-    let threshold = 0.61 as f32;
+    let threshold = 0.41 as f32;
     let _ = dbg!(battery.get_modification_time());
-    Ok(())
-    // loop {
-    //     battery.update()?;
-    //     println!("Percentage: {}", battery.capacity());
-    //     dbg!(&battery.instant);
-    //     if battery.capacity() <= threshold {
-    //         let reply = connection.call_method(
-    //             Some("org.freedesktop.Notifications"),
-    //             "/org/freedesktop/Notifications",
-    //             Some("org.freedesktop.Notifications"),
-    //             "Notify",
-    //             &(
-    //                 "praeco",
-    //                 0u32,
-    //                 "",
-    //                 "Battery Low",
-    //                 "your battery is low :(",
-    //                 actions,
-    //                 hints,
-    //                 5000i32,
-    //             ),
-    //         )?;
-    //         let notification_id: u32 = reply.body().deserialize()?;
-    //         println!("Notification sent (id {})", notification_id);
-    //         return Ok(());
-    //     }
-    //     sleep(std::time::Duration::from_secs(1));
-    // }
+    loop {
+        battery.update()?;
+        println!("Percentage: {}", battery.capacity());
+        dbg!(&battery.instant);
+        if battery.capacity() <= threshold {
+            let reply = connection.call_method(
+                Some("org.freedesktop.Notifications"),
+                "/org/freedesktop/Notifications",
+                Some("org.freedesktop.Notifications"),
+                "Notify",
+                &(
+                    "praeco",
+                    0u32,
+                    "",
+                    "Battery Low",
+                    "your battery is low :(",
+                    actions,
+                    hints,
+                    5000i32,
+                ),
+            )?;
+            let notification_id: u32 = reply.body().deserialize()?;
+            println!("Notification sent (id {})", notification_id);
+            return Ok(());
+        }
+        sleep(std::time::Duration::from_secs(1));
+    }
 }

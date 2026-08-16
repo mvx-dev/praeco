@@ -5,7 +5,7 @@ use std::{
     time::SystemTime,
 };
 
-use crate::{SysFsError, SysFsInstant};
+use crate::{BatteryConfig, SysFsError, SysFsInstant, UEVENT_ROOT, config};
 
 #[derive(Debug)]
 pub struct Battery {
@@ -69,5 +69,16 @@ impl TryFrom<&PathBuf> for Battery {
         battery.update()?;
 
         Ok(battery)
+    }
+}
+
+impl TryFrom<&config::BatteryConfig> for Battery {
+    type Error = SysFsError;
+    fn try_from(value: &BatteryConfig) -> Result<Self, Self::Error> {
+        Battery::try_from(
+            &Path::new(UEVENT_ROOT)
+                .join(value.uevent_name.as_str())
+                .join("uevent"),
+        )
     }
 }

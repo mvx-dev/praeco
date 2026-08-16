@@ -6,4 +6,6 @@ description = "A simple battery monitoring daemon for Linux"
 license = "CC BY-NC-SA 4.0"
 
 [dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+toml = "1.1.4"
 zbus = "5.19.0"
